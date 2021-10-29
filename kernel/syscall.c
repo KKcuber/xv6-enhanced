@@ -83,6 +83,7 @@ argstr(int n, char *buf, int max)
   return fetchstr(addr, buf, max);
 }
 
+// handler functions which are called to execute a syscall
 extern uint64 sys_chdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_dup(void);
@@ -104,7 +105,9 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_trace(void);
 
+// this list tells the kernel which syscall handler to call based on the syscall number passed to it
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -127,17 +130,44 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
 };
 
+struct syscall_arg_info {
+    int numargs;
+    char* name;
+};
+
+// data I need to store for each syscall for later use
+struct syscall_arg_info syscall_arg_infos[] = {{ 0, "fork" },{ 1, "exit" },{ 1, "wait" },{ 0, "pipe" },{ 3, "read" },{ 2, "kill" },{ 2, "exec" },{ 1, "fstat" },{ 1, "chdir" },{ 1, "dup" },{ 0, "getpid" },{ 1, "sbrk" },{ 1, "sleep" },{ 0, "uptime" },{ 2, "open" },{ 3, "write" },{ 3, "mknod" },{ 1, "unlink" },{ 2, "link" },{ 1, "mkdir" },{ 1, "close" },{ 1, "trace" },
+};
+
+// this function is called from trap.c every time a syscall needs to be executed. It calls the respective syscall handler
 void
 syscall(void)
 {
   int num;
   struct proc *p = myproc();
-
-  num = p->trapframe->a7;
+  num = p->trapframe->a7; // to get the number of the syscall that was called
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    p->trapframe->a0 = syscalls[num]();
+    int numargs = syscall_arg_infos[num-1].numargs;
+    int syscallArgs[numargs];
+    for (int i = 0; i < numargs; i++)
+    {
+      syscallArgs[i] = argraw(i);
+    }
+    p->trapframe->a0 = syscalls[num](); // this calls the respective syscall handler and stores return value in a0
+    int leftshift = 1 << num; // leftshift is the mask for the syscall number
+    if (p->trace_mask & leftshift) // checking if the syscall needs to be traced or not
+    {
+      printf("%d: syscall %s (",p->pid,syscall_arg_infos[num-1].name);
+      for (int i = 0; i < numargs; i++)
+      {
+        printf("%d ",syscallArgs[i]);
+      }
+      printf("\b) -> %d\n", p->trapframe->a0);
+    }
+
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

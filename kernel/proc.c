@@ -287,6 +287,10 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+
+  // Copying the trace mask from parent to child
+  np->trace_mask = p->trace_mask;
+
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -653,4 +657,12 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// enabling tracing for the current process
+void
+trace(int trace_mask)
+{
+  struct proc *p = myproc();
+  p->trace_mask = trace_mask;
 }

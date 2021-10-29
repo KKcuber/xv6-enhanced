@@ -7,6 +7,9 @@
 #include "spinlock.h"
 #include "proc.h"
 
+//////////// All syscall handler functions are defined here ///////////
+//////////// These syscall handlers get arguments from the stack. THe arguments are stored in registers a0,a1 ... inside of the trapframe ///////////
+
 uint64
 sys_exit(void)
 {
@@ -94,4 +97,14 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// fetches syscall arguments
+uint64
+sys_trace(void)
+{
+  int n;
+  argint(0, &n); // gets the first argument of the syscall
+  trace(n);
+  return 0; // if the syscall is successful, return 0
 }
