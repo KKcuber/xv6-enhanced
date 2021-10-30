@@ -551,16 +551,16 @@ scheduler(void)
     // if no process is runnable
     if(chosenFlag == 0)
       continue;
-      
-    acquire(&minimum->lock)
+
+    acquire(&minimum->lock);
     if(minimum->state == RUNNABLE)
     {
       minimum->state = RUNNING;
       c->proc = minimum;
-      swtch(&c->context, &minimum->context)
+      swtch(&c->context, &minimum->context);
       c->proc = 0;
     }
-    release(&minimum->lock)
+    release(&minimum->lock);
 
 #endif
   }
