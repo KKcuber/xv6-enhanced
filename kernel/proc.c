@@ -577,6 +577,7 @@ scheduler(void)
     int chosenFlag = 0;
     int min_dp;
     for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
       if(p->state == RUNNABLE)
       {
         chosenFlag = 1;
@@ -634,6 +635,7 @@ scheduler(void)
           }
         }
       }
+      release(&p->lock);
     }
     // if no process is runnable
     if(chosenFlag == 0)
@@ -644,6 +646,7 @@ scheduler(void)
     {
       minimum->sched_begin = ticks;
       minimum->num_run++;
+      minimum->run_last = 0;
       minimum->state = RUNNING;
       c->proc = minimum;
       swtch(&c->context, &minimum->context);
@@ -860,4 +863,26 @@ trace(int trace_mask)
 {
   struct proc *p = myproc();
   p->trace_mask = trace_mask;
+}
+
+
+// Change the priority of the given process with pid to new_priority
+int set_priority(int new_priority,int pid)
+{
+  struct proc *p;
+  int old_priority = 0;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      old_priority = p->static_priority;
+      p->static_priority = new_priority;
+      p->new_proc = 1;
+      release(&p->lock);
+      yield();
+      return old_priority;
+    }
+    release(&p->lock);
+  }
+  yield();
+  return old_priority;
 }

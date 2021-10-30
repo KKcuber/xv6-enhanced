@@ -139,7 +139,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_strace\
-	#$U/_schedulertest
+	$U/_schedulertest
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

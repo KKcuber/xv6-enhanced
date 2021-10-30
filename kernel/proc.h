@@ -111,12 +111,10 @@ struct proc {
   uint ctime;                   // When was the process created 
   uint etime;                   // When did the process exited
 
-#ifdef PBS
   int static_priority;          // static priority of the process
   int num_run;                  // Records number of times the process was run
   int sched_begin;              // Records the time when the process was last scheduled
   int sched_end;                // Records the time when the process exited scheduler
   int run_last;                 // Records the running time of the process since the last time it was scheduled which basically means that process state changed to RUNNABLE
   int new_proc;                 // Records whether the process has ever been scheduled or not
-#endif
 };

@@ -107,6 +107,7 @@ extern uint64 sys_waitx(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_trace(void);
+extern uint64 sys_set_priority(void);
 
 // this list tells the kernel which syscall handler to call based on the syscall number passed to it
 static uint64 (*syscalls[])(void) = {
@@ -132,7 +133,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace,
-[SYS_waitx]   sys_waitx
+[SYS_waitx]   sys_waitx,
+[SYS_set_priority] sys_set_priority
 };
 
 struct syscall_arg_info {
@@ -141,8 +143,7 @@ struct syscall_arg_info {
 };
 
 // data I need to store for each syscall for later use
-struct syscall_arg_info syscall_arg_infos[] = {{ 0, "fork" },{ 1, "exit" },{ 1, "wait" },{ 0, "pipe" },{ 3, "read" },{ 2, "kill" },{ 2, "exec" },{ 1, "fstat" },{ 1, "chdir" },{ 1, "dup" },{ 0, "getpid" },{ 1, "sbrk" },{ 1, "sleep" },{ 0, "uptime" },{ 2, "open" },{ 3, "write" },{ 3, "mknod" },{ 1, "unlink" },{ 2, "link" },{ 1, "mkdir" },{ 1, "close" },{ 1, "trace" },
-};
+struct syscall_arg_info syscall_arg_infos[] = {{ 0, "fork" },{ 1, "exit" },{ 1, "wait" },{ 0, "pipe" },{ 3, "read" },{ 2, "kill" },{ 2, "exec" },{ 1, "fstat" },{ 1, "chdir" },{ 1, "dup" },{ 0, "getpid" },{ 1, "sbrk" },{ 1, "sleep" },{ 0, "uptime" },{ 2, "open" },{ 3, "write" },{ 3, "mknod" },{ 1, "unlink" },{ 2, "link" },{ 1, "mkdir" },{ 1, "close" },{ 1, "trace" },{ 3, "waitx" }, {2, "set_priority"},};
 
 // this function is called from trap.c every time a syscall needs to be executed. It calls the respective syscall handler
 void
