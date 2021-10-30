@@ -517,6 +517,7 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
+#ifdef DEFAULT
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -533,6 +534,35 @@ scheduler(void)
       }
       release(&p->lock);
     }
+#endif
+#ifdef FCFS
+    struct proc *minimum = 0;
+    int chosenFlag = 0;
+    for(p = proc; p < &proc[NPROC]; p++) {
+      if(p->state == RUNNABLE)
+      {
+        chosenFlag = 1;
+        if(minimum == 0)
+          minimum = p;
+        else if(p->ctime < minimum->ctime)
+          minimum = p;
+      }
+    }
+    // if no process is runnable
+    if(chosenFlag == 0)
+      continue;
+      
+    acquire(&minimum->lock)
+    if(minimum->state == RUNNABLE)
+    {
+      minimum->state = RUNNING;
+      c->proc = minimum;
+      swtch(&c->context, &minimum->context)
+      c->proc = 0;
+    }
+    release(&minimum->lock)
+
+#endif
   }
 }
 
