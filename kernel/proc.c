@@ -143,6 +143,12 @@ found:
   p->rtime = 0;
   p->etime = 0;
   p->ctime = ticks;
+#ifdef PBS
+  p->static_priority = 60;
+  p->num_run = 0;
+  p->run_last = 0;
+  p->new_proc = 1;
+#endif
 
   return p;
 }
@@ -494,6 +500,9 @@ update_time()
     acquire(&p->lock);
     if (p->state == RUNNING) {
       p->rtime++;
+      #ifdef PBS
+      p->run_last++;
+      #endif
     }
     release(&p->lock); 
   }
@@ -563,6 +572,85 @@ scheduler(void)
     release(&minimum->lock);
 
 #endif
+#ifdef PBS
+    struct proc *minimum = 0;
+    int chosenFlag = 0;
+    int min_dp;
+    for(p = proc; p < &proc[NPROC]; p++) {
+      if(p->state == RUNNABLE)
+      {
+        chosenFlag = 1;
+        int sleeptime,dp,niceness;
+        if(p->new_proc)
+        {
+          p->new_proc = 0;
+          niceness = 5;
+          dp = p->static_priority - niceness + 5;
+          if(dp > 100)
+            dp = 100;
+          if(dp < 0)
+            dp = 0;
+        }
+        else
+        {
+          sleeptime = p->sched_end - p->sched_begin + p->run_last;
+          niceness = (sleeptime/(p->run_last + sleeptime))*10;
+          dp = p->static_priority - niceness + 5;
+          if(dp > 100)
+            dp = 100;
+          if(dp < 0)
+            dp = 0;
+        }
+        if(minimum == 0)
+        {
+          minimum = p;
+          min_dp = dp;
+        }
+        else if(dp <= min_dp)
+        {
+          if(dp < min_dp)
+          {
+            minimum = p;
+            min_dp = dp;
+          }
+          else
+          {
+            if(p->num_run <= minimum->num_run)
+            {
+              if(p->num_run < minimum->num_run)
+              {
+                minimum = p;
+                min_dp = dp;
+              }
+              else
+              {
+                if(p->ctime < minimum->ctime)
+                {
+                  minimum = p;
+                  min_dp = dp;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    // if no process is runnable
+    if(chosenFlag == 0)
+      continue;
+
+    acquire(&minimum->lock);
+    if(minimum->state == RUNNABLE)
+    {
+      minimum->sched_begin = ticks;
+      minimum->num_run++;
+      minimum->state = RUNNING;
+      c->proc = minimum;
+      swtch(&c->context, &minimum->context);
+      c->proc = 0;
+    }
+    release(&minimum->lock);
+#endif
   }
 }
 
@@ -600,6 +688,9 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  #ifdef PBS
+  p->sched_end = ticks;
+  #endif
   sched();
   release(&p->lock);
 }
@@ -668,6 +759,9 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        #ifdef PBS
+        p->sched_end = ticks;
+        #endif
       }
       release(&p->lock);
     }
@@ -689,6 +783,9 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        #ifdef PBS
+        p->sched_end = ticks;
+        #endif
       }
       release(&p->lock);
       return 0;
