@@ -81,6 +81,17 @@ usertrap(void)
   if(which_dev == 2)
     yield();
   #endif
+  #ifdef MLFQ
+  if(which_dev == 2)
+  {
+    struct proc* p = myproc();
+    if(p->change_queue <= 0)
+    {
+      p->level++;
+      yield();
+    }
+  }
+  #endif
 
   usertrapret();
 }
@@ -155,6 +166,17 @@ kerneltrap()
   #ifdef DEFAULT
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
+  #endif
+  #ifdef MLFQ
+  if(which_dev == 2)
+  {
+    struct proc* p = myproc();
+    if(p->change_queue <= 0)
+    {
+      p->level++;
+      yield();
+    }
+  }
   #endif
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

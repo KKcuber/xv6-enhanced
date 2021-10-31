@@ -117,4 +117,21 @@ struct proc {
   int sched_end;                // Records the time when the process exited scheduler
   int run_last;                 // Records the running time of the process since the last time it was scheduled which basically means that process state changed to RUNNABLE
   int new_proc;                 // Records whether the process has ever been scheduled or not
+
+  int level;                    // Records the level of queue in which the process is currently in
+  int in_queue;                 // Flag which keeps track of whether the process in in queue or not
+  int change_queue;             // Keeps track of how much time is left for process in that queue 
+  int q_enter;                  // Time when the process entered the queue
+  int q[5];                     // Records time spent in each queue
 };
+
+struct Queue {
+  int head, tail;
+  struct proc *array[NPROC + 1];
+  int size;
+};
+void            push(struct Queue *list, struct proc *element);
+void            pop(struct Queue *list);
+struct proc*    front(struct Queue *list);
+void            qerase(struct Queue *list, int pid);
+void            ageing(void);

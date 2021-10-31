@@ -26,6 +26,75 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+struct Queue milfq[5];
+
+void
+push (struct Queue *list, struct proc *element)
+{
+  if (list->size == NPROC) {
+    panic("Proccess limit exceeded");
+  }  
+
+  list->array[list->tail] = element;
+  list->tail++;
+  if (list->tail == NPROC + 1) {
+    list->tail = 0;
+  }
+  list->size++;
+}
+
+void
+pop(struct Queue *list)
+{
+  if (list->size == 0) {
+    panic("Poping from empty queue");
+  }
+
+  list->head++;
+  if (list->head == NPROC + 1) {
+    list->head = 0;
+  }
+
+  list->size--;
+}
+
+struct proc*
+front(struct Queue *list)
+{
+  if (list->head == list->tail) {
+    return 0;
+  } 
+  return list->array[list->head];
+}
+
+void 
+qerase(struct Queue *list, int pid) 
+{
+  for (int curr = list->head; curr != list->tail; curr = (curr + 1) % (NPROC + 1)) {
+    if (list->array[curr]->pid == pid) {
+      struct proc *temp = list->array[curr];
+      list->array[curr] = list->array[(curr + 1) % (NPROC + 1)];
+      list->array[(curr + 1) % (NPROC + 1)] = temp;
+    } 
+  }
+
+  list->tail--;
+  list->size--;
+  if (list->tail < 0) {
+    list->tail = NPROC;
+  }
+}
+
+void
+pinit(void)
+{
+  for (int i = 0; i < 5; i++) {
+    milfq[i].size = 0;
+    milfq[i].head = 0;
+    milfq[i].tail = 0;
+  }
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -148,7 +217,14 @@ found:
   p->num_run = 0;
   p->run_last = 0;
   p->new_proc = 1;
+  p->level = 0;
+  p->change_queue = 1 << p->level;
+  p->in_queue = 0;
+  p->q_enter = ticks;
 #endif
+  for (int i = 0; i < 5; i++) {
+    p->q[i] = 0;
+  }
 
   return p;
 }
@@ -503,10 +579,60 @@ update_time()
       #ifdef PBS
       p->run_last++;
       #endif
+      #ifdef MLFQ
+      p->q[p->level]++;
+      p->change_queue--;
+      #endif
     }
     release(&p->lock); 
   }
 }
+
+void
+ageing(void)
+{
+  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+    if (p->state == RUNNABLE && ticks - p->q_enter >= 128) {
+      if (p->in_queue) {
+        qerase(&milfq[p->level], p->pid);
+        p->in_queue = 0;
+      }
+      if (p->level != 0) {
+        p->level--;
+      }
+      p->q_enter = ticks;
+    }
+  }
+}
+
+#ifdef MLFQ
+static struct proc*
+mlfq_sched(void)
+{
+  ageing();
+  /* Add runnable process to queue */
+  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+    if (p->state == RUNNABLE && p->in_queue == 0) {
+      push(&milfq[p->level], p);
+      p->in_queue = 1;
+    }
+  }
+
+  for (int level = 0; level < 5; level++) {
+    while (milfq[level].size) {
+      struct proc *p = front(&milfq[level]);
+      pop(&milfq[level]);
+      p->in_queue = 0;
+      if (p->state == RUNNABLE) {
+        p->q_enter = ticks;
+        return p;
+      }
+    } 
+  }
+
+  return 0;
+}
+#endif
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -653,6 +779,24 @@ scheduler(void)
       c->proc = 0;
     }
     release(&minimum->lock);
+#endif
+#ifdef MLFQ
+    p = mlfq_sched();
+    if (p) {
+      // No need to acquire
+      p->change_queue = 1 << p->level;
+      c->proc = p;
+      p->state = RUNNING;
+      p->q_enter = ticks;
+      p->num_run++;
+
+      swtch(&c->context, &p->context);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+      p->q_enter = ticks;
+    }
 #endif
   }
 }
