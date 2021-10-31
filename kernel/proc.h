@@ -121,8 +121,8 @@ struct proc {
   int level;                    // Records the level of queue in which the process is currently in
   int in_queue;                 // Flag which keeps track of whether the process in in queue or not
   int change_queue;             // Keeps track of how much time is left for process in that queue 
-  int q_enter;                  // Time when the process entered the queue
-  int q[5];                     // Records time spent in each queue
+  int queue_enter_time;         // Time when the process entered the queue
+  int queue[5];                     // Records time spent in each queue
 };
 
 struct Queue {

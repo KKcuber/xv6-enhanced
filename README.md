@@ -20,4 +20,7 @@
 5. Added new syscall `set_priority` which changes static priority of the process.
 
 ### MLFQ
-1.
+1. Made 5 queues to store the processes.
+2. On the initiation of a process, it is pushed to the end of the highest priority queue i.e queue 0.
+3. If the process uses the complete time slice assigned for its current priority queue, it is preempted and inserted at the end of the next lower level queue. This is done in kernel and user trap.
+4. Imlemented aging to prevent starvation.
