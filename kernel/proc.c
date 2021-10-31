@@ -188,6 +188,23 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  // acquire(&tickslock);
+  p->ctime = ticks;
+  // release(&tickslock);
+  p->rtime = 0;
+  p->etime = 0;
+  p->static_priority = 60;
+  p->num_run = 0;
+  p->run_last = 0;
+  p->new_proc = 1;
+  p->level = 0;
+  p->change_queue = 1 << p->level;
+  p->in_queue = 0;
+  p->queue_enter_time = ticks;
+  for (int i = 0; i < 5; i++)
+  {
+    p->queue[i] = 0;
+  }
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
@@ -211,23 +228,6 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-  p->rtime = 0;
-  p->etime = 0;
-  p->ctime = ticks;
-#ifdef PBS
-  p->static_priority = 60;
-  p->num_run = 0;
-  p->run_last = 0;
-  p->new_proc = 1;
-  p->level = 0;
-  p->change_queue = 1 << p->level;
-  p->in_queue = 0;
-  p->queue_enter_time = ticks;
-#endif
-  for (int i = 0; i < 5; i++)
-  {
-    p->queue[i] = 0;
-  }
 
   return p;
 }
@@ -595,41 +595,21 @@ void update_time()
     if (p->state == RUNNING)
     {
       p->rtime++;
-#ifdef PBS
+      #ifdef PBS
       p->run_last++;
-#endif
-#ifdef MLFQ
+      #endif
+      #ifdef MLFQ
       p->queue[p->level]++;
       p->change_queue--;
-#endif
+      #endif
     }
     release(&p->lock);
   }
 }
 
-void ageing(void)
-{
-  for (struct proc *p = proc; p < &proc[NPROC]; p++)
-  {
-    if (p->state == RUNNABLE && ticks - p->queue_enter_time >= 128)
-    {
-      if (p->in_queue)
-      {
-        qerase(&mlfq_queue[p->level], p->pid);
-        p->in_queue = 0;
-      }
-      if (p->level != 0)
-      {
-        p->level--;
-      }
-      p->queue_enter_time = ticks;
-    }
-  }
-}
-
 #ifdef MLFQ
 static struct proc *
-mlfq_sched(void)
+mlfq_scheduler(void)
 {
   // aging
   for (struct proc *p = proc; p < &proc[NPROC]; p++)
@@ -827,9 +807,10 @@ void scheduler(void)
     release(&minimum->lock);
 #endif
 #ifdef MLFQ
-    p = mlfq_sched();
+    p = mlfq_scheduler();
     if (p)
     {
+      acquire(&p->lock);
       // No need to acquire lock, since only 1 cpu is going to be tested for mlfq
       p->change_queue = 1 << p->level;
       c->proc = p;
@@ -839,6 +820,7 @@ void scheduler(void)
       swtch(&c->context, &p->context);
       c->proc = 0;
       p->queue_enter_time = ticks;
+      release(&p->lock);
     }
 #endif
   }
@@ -1032,8 +1014,13 @@ void procdump(void)
       [RUNNING] "run   ",
       [ZOMBIE] "zombie"};
   struct proc *p;
-  char *state;
-
+  char *state;;
+  #ifdef PBS
+  printf("PID Priority State rtime wtime nrun\n");
+  #endif
+  #ifdef MLFQ
+  printf("PID Priority State rtime wtime nrun q0 q1 q2 q3 q4\n");
+  #endif
   printf("\n");
   for (p = proc; p < &proc[NPROC]; p++)
   {
@@ -1043,8 +1030,41 @@ void procdump(void)
       state = states[p->state];
     else
       state = "???";
+    #ifdef DEFAULT
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+    #endif
+    #ifdef FCFS
+    printf("%d %s %s", p->pid, state, p->name);
+    printf("\n");
+    #endif
+    #ifdef PBS
+    int dp, niceness, sleeptime;
+    if (p->new_proc)
+        {
+          p->new_proc = 0;
+          niceness = 5;
+          dp = p->static_priority - niceness + 5;
+          if (dp > 100)
+            dp = 100;
+          if (dp < 0)
+            dp = 0;
+        }
+        else
+        {
+          sleeptime = p->sched_end - p->sched_begin + p->run_last;
+          niceness = (sleeptime / (p->run_last + sleeptime)) * 10;
+          dp = p->static_priority - niceness + 5;
+          if (dp > 100)
+            dp = 100;
+          if (dp < 0)
+            dp = 0;
+        }
+    printf("%d %d %s %d %d %d\n", p->pid, dp, state, p->rtime, ticks - p->ctime - p->rtime, p->num_run);
+    #endif
+    #ifdef MLFQ
+    printf("%d %d %s %d %d %d %d %d %d %d %d\n", p->pid, (p->level >= 0) ? p->level : -1, state, p->rtime, ticks - p->queue_enter_time, p->num_run, p->queue[0], p->queue[1], p->queue[2], p->queue[3], p->queue[4]);
+    #endif
   }
 }
 

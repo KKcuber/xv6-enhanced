@@ -122,7 +122,7 @@ struct proc {
   int in_queue;                 // Flag which keeps track of whether the process in in queue or not
   int change_queue;             // Keeps track of how much time is left for process in that queue 
   int queue_enter_time;         // Time when the process entered the queue
-  int queue[5];                     // Records time spent in each queue
+  int queue[5];                 // Records time spent in each queue
 };
 
 struct Queue {
@@ -134,4 +134,4 @@ void            push(struct Queue *list, struct proc *element);
 void            pop(struct Queue *list);
 struct proc*    front(struct Queue *list);
 void            qerase(struct Queue *list, int pid);
-void            ageing(void);
+void            aging(void);

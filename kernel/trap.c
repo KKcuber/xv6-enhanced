@@ -78,16 +78,17 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   #ifdef DEFAULT
-  if(which_dev == 2)
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
   #endif
   #ifdef MLFQ
-  if(which_dev == 2)
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
   {
     struct proc* p = myproc();
     if(p->change_queue <= 0)
     {
-      p->level++;
+      if(p->level != 4)
+        p->level++;
       yield();
     }
   }
@@ -168,12 +169,13 @@ kerneltrap()
     yield();
   #endif
   #ifdef MLFQ
-  if(which_dev == 2)
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
   {
     struct proc* p = myproc();
     if(p->change_queue <= 0)
     {
-      p->level++;
+      if(p->level != 4)
+        p->level++;
       yield();
     }
   }

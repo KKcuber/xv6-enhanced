@@ -22,5 +22,28 @@
 ### MLFQ
 1. Made 5 queues to store the processes.
 2. On the initiation of a process, it is pushed to the end of the highest priority queue i.e queue 0.
-3. If the process uses the complete time slice assigned for its current priority queue, it is preempted and inserted at the end of the next lower level queue. This is done in kernel and user trap.
-4. Imlemented aging to prevent starvation.
+3. Added new variables to struct proc and intitialised them in allocproc
+4. If the process uses the complete time slice assigned for its current priority queue, it is preempted and inserted at the end of the next lower level queue. This is done in kernel and user trap.
+5. Implemented aging to prevent starvation.
+
+## Spec 2 : Procdump
+1. procdump requires a few more variables in `struct proc` to have display all the necessary details.
+2. Then we just print the details in procdump function which is called whenever control + P is pressed.
+3. We print them according to the scheduler specified.
+
+### Answer to question asked in specification 2
+This can be exploited by process if it yields its the CPU before finishing its allocated time and thus retaining its priority. Then the lower priority processes will never be able to run.
+
+## Benchmarks
+### Default
+rtime - 23, wtime - 192
+### FCFS
+**on 1 cpu** :- rtime - 46, wtime - 208
+
+**on 3 cpu's** :- rtime - 52, wtime - 62
+### PBS
+**on 1 cpu** :- rtime - 23, wtime - 162
+
+**on 3 cpu's** :- rtime - 26, wtime - 110
+### MLFQ
+rtime - 23, wtime - 182
